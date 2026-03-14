@@ -12,7 +12,7 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
-    "test": "node --loader ts-node/esm tests/test-renderer.ts"
+    "test": "node --loader ts-node/esm tests/test-renderer.ts && node --loader ts-node/esm tests/test-auto-annotation.ts && node --loader ts-node/esm tests/test-pixel-snapping.ts"
   },
   "keywords": [
     "tja",

@@ -1,18 +1,19 @@
 import type { HitInfo } from "./hit-testing.js";
 import {
-  createCycleHandHandler,
-  createChartView as createInternalChartView,
-  createToggleSeparatorHandler,
+  createChartViewImpl,
+  createCycleHandHandler as createCycleHandHandlerImpl,
+  createToggleSeparatorHandler as createToggleSeparatorHandlerImpl,
+  getChartInfoImpl,
   type NoteInteractionEvent,
   type NoteInteractionHandler,
 } from "./internal.js";
-import { calculateAutoZoomBeats, type LayoutRatios } from "./layout.js";
+import type { LayoutRatios } from "./layout.js";
 import { type Annotation, BranchName, type NoteLocation, NoteLocationMap, type NoteType } from "./primitives.js";
-import { DEFAULT_RENDER_OPTIONS, type RenderOptions } from "./renderer.js";
-import { type ParsedChart, parseTJA } from "./tja-parser.js";
 
-export type { HitInfo, LayoutRatios, NoteInteractionEvent, NoteInteractionHandler, NoteLocation, NoteType };
-export { BranchName, createCycleHandHandler, createToggleSeparatorHandler, NoteLocationMap, type Annotation };
+export type { Annotation, HitInfo, LayoutRatios, NoteInteractionEvent, NoteInteractionHandler, NoteLocation, NoteType };
+export { BranchName, NoteLocationMap };
+
+// ── Types ───────────────────────────────────────────────────────────────────
 
 export interface CourseSpecifier {
   difficulty: string;
@@ -22,37 +23,6 @@ export interface CourseSpecifier {
 export interface ChartInfo {
   courseSpecifiers: CourseSpecifier[];
   hasBranching(course: CourseSpecifier): boolean;
-}
-
-/**
- * Parses a TJA string and returns information about available courses.
- */
-export function getChartInfo(tjaContent: string): ChartInfo {
-  const parsed = parseTJA(tjaContent);
-  const specifiers: CourseSpecifier[] = [];
-  const branchingMap = new Map<string, boolean>();
-
-  for (const [difficulty, chart] of Object.entries(parsed)) {
-    if (chart.playerSides) {
-      for (const side of Object.keys(chart.playerSides)) {
-        const sideChart = chart.playerSides[side];
-        const spec: CourseSpecifier = { difficulty, playerSide: side };
-        specifiers.push(spec);
-        branchingMap.set(courseSpecifierKey(spec), !!sideChart.branches);
-      }
-    } else {
-      const spec: CourseSpecifier = { difficulty };
-      specifiers.push(spec);
-      branchingMap.set(courseSpecifierKey(spec), !!chart.branches);
-    }
-  }
-
-  return {
-    courseSpecifiers: specifiers,
-    hasBranching(course: CourseSpecifier): boolean {
-      return branchingMap.get(courseSpecifierKey(course)) ?? false;
-    },
-  };
 }
 
 export interface ZoomByBeatsPerLine {
@@ -97,6 +67,7 @@ export const CREATE_CHART_OPTIONS_DEFAULTS: Required<Pick<ChartViewOptions, "zoo
 };
 
 export interface ChartView {
+  /** Update the annotations displayed on the chart and re-render. */
   applyAnnotations(annotations: NoteLocationMap<Annotation>): void;
 
   /**
@@ -114,6 +85,15 @@ export interface ChartView {
   onNoteClicked(handler: NoteInteractionHandler): () => void;
 }
 
+// ── Functions ───────────────────────────────────────────────────────────────
+
+/**
+ * Parses a TJA string and returns information about available courses.
+ */
+export function getChartInfo(tjaContent: string): ChartInfo {
+  return getChartInfoImpl(tjaContent);
+}
+
 /**
  * Renders a TJA chart to the provided canvas.
  *
@@ -126,120 +106,29 @@ export function createChartView(
   tjaContent: string,
   canvas: HTMLCanvasElement,
   course?: CourseSpecifier,
-  options: ChartViewOptions = {},
+  options?: ChartViewOptions,
 ): ChartView {
-  const { zoom, branch, showAttribution, dpr, tjaSourceName, layoutRatios } = {
-    ...CREATE_CHART_OPTIONS_DEFAULTS,
-    ...options,
-  };
-
-  const parsed = parseTJA(tjaContent);
-  const resolvedCourse = course ?? resolveDefaultCourse(parsed);
-  const diffKey = resolvedCourse.difficulty.toLowerCase();
-  let rootChart = parsed[diffKey];
-
-  if (!rootChart) {
-    throw new Error(`Difficulty "${resolvedCourse.difficulty}" not found in TJA content.`);
-  }
-
-  // Resolve player side: use specified side, or default to first side (p1) if chart has sides
-  const playerSide = resolvedCourse.playerSide ?? resolveDefaultPlayerSide(rootChart);
-  if (playerSide && rootChart.playerSides) {
-    const sideChart = rootChart.playerSides[playerSide];
-    if (!sideChart) {
-      throw new Error(`Player side "${playerSide}" not found for difficulty "${resolvedCourse.difficulty}".`);
-    }
-    rootChart = sideChart;
-  }
-
-  // Resolve branch
-  let chart: ParsedChart;
-  let showAllBranches: boolean;
-
-  if (branch !== "auto") {
-    if (!rootChart.branches) {
-      throw new Error(`Branch "${branch}" requested but chart has no branching.`);
-    }
-    const branchChart = rootChart.branches[branch];
-    if (!branchChart) {
-      throw new Error(`Branch "${branch}" not found.`);
-    }
-    chart = branchChart;
-    showAllBranches = false;
-  } else {
-    chart = rootChart;
-    showAllBranches = !!rootChart.branches;
-  }
-
-  if (!canvas.clientWidth) {
-    throw new Error("Canvas has no clientWidth. Ensure the canvas is in the DOM before calling createChart.");
-  }
-
-  const internalView = createInternalChartView(chart, canvas);
-  let currentAnnotations = new NoteLocationMap<Annotation>();
-
-  const resolveBeatsPerLine = (): number => {
-    if (zoom === "auto") {
-      return calculateAutoZoomBeats(canvas.clientWidth || canvas.width);
-    }
-    return zoom.beatsPerLine;
-  };
-
-  const render = () => {
-    const renderOptions: RenderOptions = {
-      ...DEFAULT_RENDER_OPTIONS,
-      beatsPerLine: resolveBeatsPerLine(),
-      showAllBranches,
-      showAttribution,
-      tjaSourceName,
-      annotations: currentAnnotations,
-    };
-    internalView.invalidateLayout();
-    internalView.render({ renderOptions, dpr, layoutRatios });
-  };
-
-  render();
-
-  return {
-    applyAnnotations(annotations: NoteLocationMap<Annotation>): void {
-      currentAnnotations = annotations;
-      render();
-    },
-    onNoteHovered: (handler: NoteInteractionHandler) => internalView.onNoteHovered(handler),
-    onNoteClicked: (handler: NoteInteractionHandler) => internalView.onNoteClicked(handler),
-  };
+  return createChartViewImpl(tjaContent, canvas, course, options);
 }
 
-function courseSpecifierKey(spec: CourseSpecifier): string {
-  if (spec.playerSide) {
-    return `${spec.difficulty}:${spec.playerSide}`;
-  }
-  return spec.difficulty;
+/**
+ * Creates a NoteInteractionHandler that cycles hand annotation (none -> L -> R -> none)
+ * on judgeable notes. Non-judgeable notes are ignored.
+ */
+export function createCycleHandHandler(
+  getAnnotations: () => NoteLocationMap<Annotation>,
+  onChange: (annotations: NoteLocationMap<Annotation>) => void,
+): NoteInteractionHandler {
+  return createCycleHandHandlerImpl(getAnnotations, onChange);
 }
 
-const DIFFICULTY_PRIORITIES = ["edit", "oni", "hard", "normal", "easy"];
-
-function resolveDefaultCourse(parsed: Record<string, ParsedChart>): CourseSpecifier {
-  const courses = Object.keys(parsed);
-  if (courses.length === 0) {
-    throw new Error("No courses found in TJA content.");
-  }
-
-  let difficulty = courses[0];
-  for (const p of DIFFICULTY_PRIORITIES) {
-    const match = courses.find((c) => c.toLowerCase().includes(p));
-    if (match) {
-      difficulty = match;
-      break;
-    }
-  }
-
-  return { difficulty };
-}
-
-function resolveDefaultPlayerSide(chart: ParsedChart): string | undefined {
-  if (!chart.playerSides) return undefined;
-  const sides = Object.keys(chart.playerSides).sort();
-  // Prefer p1, then first available side
-  return sides.find((s) => s === "p1") ?? sides[0];
+/**
+ * Creates a NoteInteractionHandler that toggles separator annotation
+ * on judgeable notes. Non-judgeable notes are ignored.
+ */
+export function createToggleSeparatorHandler(
+  getAnnotations: () => NoteLocationMap<Annotation>,
+  onChange: (annotations: NoteLocationMap<Annotation>) => void,
+): NoteInteractionHandler {
+  return createToggleSeparatorHandlerImpl(getAnnotations, onChange);
 }

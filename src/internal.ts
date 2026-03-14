@@ -21,12 +21,12 @@ import {
   JudgementMap,
   type JudgementValue,
   type NoteLocation,
-  type NoteLocationMap,
+  NoteLocationMap,
   type RenderOptions,
   type RenderTexts,
 } from "./primitives.js";
 import { renderLayout as renderLayoutImpl } from "./renderer.js";
-import type { ParsedChart } from "./tja-parser.js";
+import { type ParsedChart, parseTJA } from "./tja-parser.js";
 
 /**
  * Internal chart view options wrapping the full RenderOptions.
@@ -283,4 +283,163 @@ export function createToggleSeparatorHandler(
     if (!hit || !isJudgeable(hit.type)) return;
     onChange(applyToggleSeparator(getAnnotations(), hit.location));
   };
+}
+
+// ── Public API implementations ──────────────────────────────────────────────
+
+import type {
+  ChartInfo,
+  CourseSpecifier,
+  ChartView as PublicChartView,
+  ChartViewOptions as PublicChartViewOptions,
+} from "./api.js";
+import { CREATE_CHART_OPTIONS_DEFAULTS } from "./api.js";
+import { calculateAutoZoomBeats } from "./layout.js";
+import { DEFAULT_RENDER_OPTIONS } from "./renderer.js";
+
+export function getChartInfoImpl(tjaContent: string): ChartInfo {
+  const parsed = parseTJA(tjaContent);
+  const specifiers: CourseSpecifier[] = [];
+  const branchingMap = new Map<string, boolean>();
+
+  for (const [difficulty, chart] of Object.entries(parsed)) {
+    if (chart.playerSides) {
+      for (const side of Object.keys(chart.playerSides)) {
+        const sideChart = chart.playerSides[side];
+        const spec: CourseSpecifier = { difficulty, playerSide: side };
+        specifiers.push(spec);
+        branchingMap.set(courseSpecifierKey(spec), !!sideChart.branches);
+      }
+    } else {
+      const spec: CourseSpecifier = { difficulty };
+      specifiers.push(spec);
+      branchingMap.set(courseSpecifierKey(spec), !!chart.branches);
+    }
+  }
+
+  return {
+    courseSpecifiers: specifiers,
+    hasBranching(course: CourseSpecifier): boolean {
+      return branchingMap.get(courseSpecifierKey(course)) ?? false;
+    },
+  };
+}
+
+export function createChartViewImpl(
+  tjaContent: string,
+  canvas: HTMLCanvasElement,
+  course?: CourseSpecifier,
+  options: PublicChartViewOptions = {},
+): PublicChartView {
+  const { zoom, branch, showAttribution, dpr, tjaSourceName, layoutRatios } = {
+    ...CREATE_CHART_OPTIONS_DEFAULTS,
+    ...options,
+  };
+
+  const parsed = parseTJA(tjaContent);
+  const resolvedCourse = course ?? resolveDefaultCourse(parsed);
+  const diffKey = resolvedCourse.difficulty.toLowerCase();
+  let rootChart = parsed[diffKey];
+
+  if (!rootChart) {
+    throw new Error(`Difficulty "${resolvedCourse.difficulty}" not found in TJA content.`);
+  }
+
+  const playerSide = resolvedCourse.playerSide ?? resolveDefaultPlayerSide(rootChart);
+  if (playerSide && rootChart.playerSides) {
+    const sideChart = rootChart.playerSides[playerSide];
+    if (!sideChart) {
+      throw new Error(`Player side "${playerSide}" not found for difficulty "${resolvedCourse.difficulty}".`);
+    }
+    rootChart = sideChart;
+  }
+
+  let chart: ParsedChart;
+  let showAllBranches: boolean;
+
+  if (branch !== "auto") {
+    if (!rootChart.branches) {
+      throw new Error(`Branch "${branch}" requested but chart has no branching.`);
+    }
+    const branchChart = rootChart.branches[branch];
+    if (!branchChart) {
+      throw new Error(`Branch "${branch}" not found.`);
+    }
+    chart = branchChart;
+    showAllBranches = false;
+  } else {
+    chart = rootChart;
+    showAllBranches = !!rootChart.branches;
+  }
+
+  if (!canvas.clientWidth) {
+    throw new Error("Canvas has no clientWidth. Ensure the canvas is in the DOM before calling createChart.");
+  }
+
+  const internalView = createChartView(chart, canvas);
+  let currentAnnotations = new NoteLocationMap<Annotation>();
+
+  const resolveBeatsPerLine = (): number => {
+    if (zoom === "auto") {
+      return calculateAutoZoomBeats(canvas.clientWidth || canvas.width);
+    }
+    return zoom.beatsPerLine;
+  };
+
+  const render = () => {
+    const renderOptions: RenderOptions = {
+      ...DEFAULT_RENDER_OPTIONS,
+      beatsPerLine: resolveBeatsPerLine(),
+      showAllBranches,
+      showAttribution,
+      tjaSourceName,
+      annotations: currentAnnotations,
+    };
+    internalView.invalidateLayout();
+    internalView.render({ renderOptions, dpr, layoutRatios });
+  };
+
+  render();
+
+  return {
+    applyAnnotations(annotations: NoteLocationMap<Annotation>): void {
+      currentAnnotations = annotations;
+      render();
+    },
+    onNoteHovered: (handler) => internalView.onNoteHovered(handler),
+    onNoteClicked: (handler) => internalView.onNoteClicked(handler),
+  };
+}
+
+function courseSpecifierKey(spec: CourseSpecifier): string {
+  if (spec.playerSide) {
+    return `${spec.difficulty}:${spec.playerSide}`;
+  }
+  return spec.difficulty;
+}
+
+const DIFFICULTY_PRIORITIES = ["edit", "oni", "hard", "normal", "easy"];
+
+function resolveDefaultCourse(parsed: Record<string, ParsedChart>): CourseSpecifier {
+  const courses = Object.keys(parsed);
+  if (courses.length === 0) {
+    throw new Error("No courses found in TJA content.");
+  }
+
+  let difficulty = courses[0];
+  for (const p of DIFFICULTY_PRIORITIES) {
+    const match = courses.find((c) => c.toLowerCase().includes(p));
+    if (match) {
+      difficulty = match;
+      break;
+    }
+  }
+
+  return { difficulty };
+}
+
+function resolveDefaultPlayerSide(chart: ParsedChart): string | undefined {
+  if (!chart.playerSides) return undefined;
+  const sides = Object.keys(chart.playerSides).sort();
+  return sides.find((s) => s === "p1") ?? sides[0];
 }

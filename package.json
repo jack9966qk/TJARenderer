@@ -13,8 +13,13 @@
     "main": "dist/index.js",
     "types": "dist/index.d.ts"
   },
+  "files": [
+    "dist",
+    "src"
+  ],
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "watch": "tsc --watch",
     "test": "node --loader ts-node/esm tests/test-renderer.ts && node --loader ts-node/esm tests/test-auto-annotation.ts && node --loader ts-node/esm tests/test-pixel-snapping.ts"
   },

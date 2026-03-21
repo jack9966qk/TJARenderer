@@ -842,8 +842,8 @@ function estimateHeaderHeight(
   let maxBpm = bpm;
   if (chart.barParams) {
     for (const param of chart.barParams) {
-      if (param.bpm < minBpm) minBpm = param.bpm;
-      if (param.bpm > maxBpm) maxBpm = param.bpm;
+      if (param.initialBpm < minBpm) minBpm = param.initialBpm;
+      if (param.initialBpm > maxBpm) maxBpm = param.initialBpm;
       if (param.bpmChanges) {
         for (const change of param.bpmChanges) {
           if (change.bpm < minBpm) minBpm = change.bpm;

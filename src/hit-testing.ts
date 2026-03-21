@@ -9,13 +9,13 @@ import {
   NoteType,
   type RenderOptions,
 } from "./primitives.js";
-import type { ParsedChart } from "./tja-parser.js";
+import { getEffectiveBpm, getEffectiveScroll, type ParsedChart } from "./tja-parser.js";
 
 export interface HitInfo {
   location: NoteLocation;
   type: NoteType;
-  bpm: number;
-  scroll: number;
+  bpm?: number;
+  scroll?: number;
   ordinal?: number;
   branchStartParams?: ParsedChart["barParams"][0]["branchStartParams"];
 }
@@ -71,7 +71,7 @@ export function getBranchLineAt(
         return {
           location: { barIndex: info.originalIndex, charIndex: -1, branch: chart.branchType },
           type: NoteType.None,
-          bpm: params.bpm,
+          bpm: params.initialBpm,
           scroll: params.scroll,
           branchStartParams: params.branchStartParams,
         };
@@ -176,38 +176,14 @@ export function getNoteAt(
 
       // Determine radius
       let radius = NOTE_RADIUS_SMALL;
-      if (isBig(char)) radius = NOTE_RADIUS_BIG; // Incorrect check: isBig(char) doesn't exist in scope? Wait, it should be imported.
-
-      // Actually, isBig is not imported. It's in primitives.ts but not exported in renderer.ts truncation...
-      // Wait, I saw isBig in primitives.ts content earlier. I need to import it.
-      // Ah, I missed importing isBig in hit-testing.ts. I need to fix that.
-      // But `isBig` was not in the imports I wrote above. Let me check primitives.ts content again.
-      // Yes, `isBig` is exported from `primitives.ts`.
-
-      // Wait, I need to check if `isBig` was correctly imported in `hit-testing.ts` content I prepared.
-      // It was NOT. I need to add it.
+      if (isBig(char)) radius = NOTE_RADIUS_BIG;
 
       if (dist <= radius) {
         // Hit!
         const currentParams = targetChart.barParams[info.originalIndex];
 
-        let effectiveBpm = currentParams ? currentParams.bpm : 120;
-        if (currentParams?.bpmChanges) {
-          for (const change of currentParams.bpmChanges) {
-            if (i >= change.index) {
-              effectiveBpm = change.bpm;
-            }
-          }
-        }
-
-        let effectiveScroll = currentParams ? currentParams.scroll : 1.0;
-        if (currentParams?.scrollChanges) {
-          for (const change of currentParams.scrollChanges) {
-            if (i >= change.index) {
-              effectiveScroll = change.scroll;
-            }
-          }
-        }
+        const effectiveBpm = currentParams ? getEffectiveBpm(currentParams, i) : undefined;
+        const effectiveScroll = currentParams ? getEffectiveScroll(currentParams, i) : undefined;
 
         const effectiveBarIndex = info.effectiveBarIndex !== undefined ? info.effectiveBarIndex : info.originalIndex;
 
@@ -258,23 +234,8 @@ export function getNoteAt(
 
         // Find effective params
         const currentParams = chart.barParams[originalBarIdx];
-        let effectiveBpm = currentParams ? currentParams.bpm : 120;
-        let effectiveScroll = currentParams ? currentParams.scroll : 1.0;
-
-        if (currentParams?.bpmChanges) {
-          for (const change of currentParams.bpmChanges) {
-            if (charIdx >= change.index) {
-              effectiveBpm = change.bpm;
-            }
-          }
-        }
-        if (currentParams?.scrollChanges) {
-          for (const change of currentParams.scrollChanges) {
-            if (charIdx >= change.index) {
-              effectiveScroll = change.scroll;
-            }
-          }
-        }
+        const effectiveBpm = currentParams ? getEffectiveBpm(currentParams, charIdx) : undefined;
+        const effectiveScroll = currentParams ? getEffectiveScroll(currentParams, charIdx) : undefined;
 
         let ordinal: number | undefined;
         if (activeLayout.locToJudgementKey) {

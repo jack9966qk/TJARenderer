@@ -39,7 +39,7 @@ export interface NextSongChange {
 }
 
 export interface BarParams {
-  bpm: number;
+  initialBpm: number;
   scroll: number;
   measureRatio: number;
   gogoTime: boolean;
@@ -59,6 +59,42 @@ export interface BarParams {
   scrollChanges?: ScrollChange[];
   gogoChanges?: GogoChange[];
   nextSongChanges?: NextSongChange[];
+}
+
+/** Resolve the effective BPM at a given char index, accounting for mid-bar BPM changes. */
+export function getEffectiveBpm(params: BarParams, charIndex: number): number {
+  const changes = params.bpmChanges;
+  if (!changes || changes.length === 0) return params.initialBpm;
+  let bpm = params.initialBpm;
+  for (const c of changes) {
+    if (c.index <= charIndex) bpm = c.bpm;
+    else break;
+  }
+  return bpm;
+}
+
+/** Resolve the effective scroll speed at a given char index, accounting for mid-bar scroll changes. */
+export function getEffectiveScroll(params: BarParams, charIndex: number): number {
+  const changes = params.scrollChanges;
+  if (!changes || changes.length === 0) return params.scroll;
+  let scroll = params.scroll;
+  for (const c of changes) {
+    if (c.index <= charIndex) scroll = c.scroll;
+    else break;
+  }
+  return scroll;
+}
+
+/** Resolve the effective gogo time state at a given char index, accounting for mid-bar gogo changes. */
+export function getEffectiveGogo(params: BarParams, charIndex: number): boolean {
+  const changes = params.gogoChanges;
+  if (!changes || changes.length === 0) return params.gogoTime;
+  let gogo = params.gogoTime;
+  for (const c of changes) {
+    if (c.index <= charIndex) gogo = c.isGogo;
+    else break;
+  }
+  return gogo;
 }
 
 export interface ParsedChart {
@@ -382,7 +418,7 @@ export function parseTJA(content: string): Record<string, ParsedChart> {
               }
 
               params.push({
-                bpm: barStartBpm,
+                initialBpm: barStartBpm,
                 scroll: barStartScroll,
                 measureRatio: state.measureRatio,
                 gogoTime: barStartGogoTime,

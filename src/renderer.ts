@@ -322,8 +322,8 @@ function drawChartHeader(
 
   if (chart.barParams) {
     for (const param of chart.barParams) {
-      if (param.bpm < minBpm) minBpm = param.bpm;
-      if (param.bpm > maxBpm) maxBpm = param.bpm;
+      if (param.initialBpm < minBpm) minBpm = param.initialBpm;
+      if (param.initialBpm > maxBpm) maxBpm = param.initialBpm;
 
       if (param.bpmChanges) {
         for (const change of param.bpmChanges) {
@@ -569,7 +569,7 @@ function getBarStatusLabels(
   if (!params) return labels;
 
   if (isFirstBar) {
-    labels.push({ type: "BPM", val: params.bpm, index: 0 });
+    labels.push({ type: "BPM", val: params.initialBpm, index: 0 });
     if (params.scroll !== 1.0) {
       labels.push({ type: "HS", val: params.scroll, index: 0 });
     }

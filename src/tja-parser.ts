@@ -43,6 +43,8 @@ export interface BarParams {
   scroll: number;
   measureRatio: number;
   gogoTime: boolean;
+  barlineStartVisible: boolean;
+  barlineEndVisible: boolean;
   isBranched: boolean;
   isBranchStart?: boolean;
   branchStartParams?: {
@@ -128,6 +130,7 @@ interface ParserState {
   scroll: number;
   measureRatio: number;
   gogoTime: boolean;
+  barlineVisible: boolean;
 
   currentBarBuffer: string;
   currentBarBpmChanges: BPMChange[];
@@ -142,6 +145,7 @@ function createInitialState(bpm: number): ParserState {
     scroll: 1.0,
     measureRatio: 1.0,
     gogoTime: false,
+    barlineVisible: true,
     currentBarBuffer: "",
     currentBarBpmChanges: [],
     currentBarScrollChanges: [],
@@ -320,6 +324,7 @@ export function parseTJA(content: string): Record<string, ParsedChart> {
         let barStartBpm = state.bpm;
         let barStartScroll = state.scroll;
         let barStartGogoTime = state.gogoTime;
+        let barStartBarlineVisible = state.barlineVisible;
         // Note: Measure ratio logic in TJA is tricky. Usually #MEASURE applies to the NEXT bar.
         // We use state.measureRatio as the ratio for the CURRENT accumulating bar.
 
@@ -374,6 +379,12 @@ export function parseTJA(content: string): Record<string, ParsedChart> {
               state.gogoTime = false;
               state.currentBarGogoChanges.push({ index: state.currentBarBuffer.length, isGogo: false });
               if (state.currentBarBuffer.length === 0) barStartGogoTime = false;
+            } else if (upperLine.startsWith("#BARLINEOFF")) {
+              state.barlineVisible = false;
+              if (state.currentBarBuffer.length === 0) barStartBarlineVisible = false;
+            } else if (upperLine.startsWith("#BARLINEON") || upperLine.startsWith("#BARLINON")) {
+              state.barlineVisible = true;
+              if (state.currentBarBuffer.length === 0) barStartBarlineVisible = true;
             } else if (upperLine.startsWith("#NEXTSONG")) {
               const argsStr = line.substring(9).trim();
               const args = splitArgs(argsStr);
@@ -422,6 +433,8 @@ export function parseTJA(content: string): Record<string, ParsedChart> {
                 scroll: barStartScroll,
                 measureRatio: state.measureRatio,
                 gogoTime: barStartGogoTime,
+                barlineStartVisible: barStartBarlineVisible,
+                barlineEndVisible: state.barlineVisible,
                 isBranched: isBranched,
                 isBranchStart: isBranched && markFirstAsBranchStart && isFirstBar,
                 branchStartParams: isBranched && markFirstAsBranchStart && isFirstBar ? branchStartParams : undefined,
@@ -439,6 +452,7 @@ export function parseTJA(content: string): Record<string, ParsedChart> {
               barStartBpm = state.bpm;
               barStartScroll = state.scroll;
               barStartGogoTime = state.gogoTime;
+              barStartBarlineVisible = state.barlineVisible;
 
               state.currentBarBpmChanges = [];
               state.currentBarScrollChanges = [];

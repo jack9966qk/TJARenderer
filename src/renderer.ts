@@ -523,6 +523,7 @@ function drawVerticalBarLine(
   height: number,
   topY: number,
   type: "branch" | "status" | "barLine",
+  isTransparent: boolean,
   config: {
     barBorderWidth: number;
     dpr: number;
@@ -533,8 +534,17 @@ function drawVerticalBarLine(
   const snappedWidth = Math.max(1, Math.round(barBorderWidth * dpr)) / dpr;
   const lineX = snap(x);
 
+  canvasContext.save();
   canvasContext.beginPath();
   canvasContext.lineWidth = snappedWidth;
+  canvasContext.setLineDash([]);
+  canvasContext.globalAlpha = 1;
+
+  if (type === "barLine" && isTransparent) {
+    const dashUnit = Math.max(2, snappedWidth * 2);
+    canvasContext.setLineDash([dashUnit, dashUnit]);
+    canvasContext.globalAlpha = 0.35;
+  }
 
   if (type === "branch") {
     canvasContext.strokeStyle = PALETTE.branches.startLine;
@@ -551,6 +561,7 @@ function drawVerticalBarLine(
   }
 
   canvasContext.stroke();
+  canvasContext.restore();
 }
 
 export interface BarStatusLabel {
@@ -628,11 +639,14 @@ function drawBarLines(
   const lineHeight = statusFontSize;
   const topY = showText ? y - barNumberOffsetY - 3 * lineHeight : y;
 
-  const positions = new Map<number, "branch" | "status" | "barLine">();
+  const positions = new Map<number, { type: "branch" | "status" | "barLine"; isTransparent: boolean }>();
+
+  const leftBarlineTransparent = params ? !params.barlineStartVisible : false;
+  const rightBarlineTransparent = params ? !params.barlineEndVisible : false;
 
   // Vertical Bar Lines - Medium Priority
-  positions.set(0, "barLine"); // Left edge (can be overwritten by branch/status)
-  positions.set(Math.round(width * 100) / 100, "barLine"); // Right edge
+  positions.set(0, { type: "barLine", isTransparent: leftBarlineTransparent }); // Left edge (can be overwritten by branch/status)
+  positions.set(Math.round(width * 100) / 100, { type: "barLine", isTransparent: rightBarlineTransparent }); // Right edge
 
   // Status Lines (BPM/HS/Scroll) - High Priority
   const labels = getBarStatusLabels(params, isFirstBar, prevParams, prevNoteCount);
@@ -642,24 +656,24 @@ function drawBarLines(
     // Only map valid proportional indices (or index 0 when empty)
     if (noteCount > 0 && idx < noteCount) {
       const pos = (idx / noteCount) * width;
-      positions.set(Math.round(pos * 100) / 100, "status");
+      positions.set(Math.round(pos * 100) / 100, { type: "status", isTransparent: false });
     } else if (idx === 0) {
-      positions.set(0, "status");
+      positions.set(0, { type: "status", isTransparent: false });
     }
   });
 
   // Branch Start - Highest Priority (Left edge only)
   if (isBranchStart) {
-    positions.set(0, "branch");
+    positions.set(0, { type: "branch", isTransparent: false });
   }
 
   // Render all line sorted by position
   const sortedPositions = Array.from(positions.keys()).sort((a, b) => a - b);
 
   sortedPositions.forEach((pos) => {
-    const type = positions.get(pos);
-    if (!type) return;
-    drawVerticalBarLine(canvasContext, x + pos, y, height, topY, type, {
+    const config = positions.get(pos);
+    if (!config) return;
+    drawVerticalBarLine(canvasContext, x + pos, y, height, topY, config.type, config.isTransparent, {
       barBorderWidth,
       dpr,
     });

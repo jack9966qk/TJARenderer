@@ -362,6 +362,18 @@ export interface JudgementVisibility {
   poor: boolean;
 }
 
+/**
+ * How to display barlines hidden by the TJA BARLINEOFF command.
+ * - Hidden: do not render the barline
+ * - Dashed: render as a dashed, semi-transparent line
+ * - Solid: render as a normal solid barline (ignore BARLINEOFF)
+ */
+export enum BarlineOffDisplay {
+  Hidden = "hidden",
+  Dashed = "dashed",
+  Solid = "solid",
+}
+
 export interface RenderOptions {
   titleOverride?: string;
   subtitleOverride?: string;
@@ -392,6 +404,7 @@ export interface RenderOptions {
     end: NoteLocation;
   };
   tjaSourceName?: string;
+  barlineOffDisplay?: BarlineOffDisplay;
 }
 
 export interface RenderTexts {

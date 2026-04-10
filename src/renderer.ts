@@ -30,6 +30,7 @@ import {
   type Annotation,
   annotationHand,
   annotationHasSeparator,
+  BarlineOffDisplay,
   BranchName,
   DEFAULT_RENDER_OPTIONS,
   DEFAULT_TEXTS,
@@ -65,6 +66,7 @@ export {
 export {
   annotationHand,
   annotationHasSeparator,
+  BarlineOffDisplay,
   BranchName,
   DEFAULT_TEXTS,
   DEFAULT_RENDER_OPTIONS,
@@ -523,12 +525,15 @@ function drawVerticalBarLine(
   height: number,
   topY: number,
   type: "branch" | "status" | "barLine",
-  isTransparent: boolean,
+  barlineOff: boolean,
+  barlineOffDisplay: BarlineOffDisplay,
   config: {
     barBorderWidth: number;
     dpr: number;
   },
 ) {
+  if (type === "barLine" && barlineOff && barlineOffDisplay === BarlineOffDisplay.Hidden) return;
+
   const { barBorderWidth, dpr } = config;
   const snap = (v: number) => snapForDevicePixel(v, barBorderWidth, dpr);
   const snappedWidth = Math.max(1, Math.round(barBorderWidth * dpr)) / dpr;
@@ -537,10 +542,8 @@ function drawVerticalBarLine(
   canvasContext.save();
   canvasContext.beginPath();
   canvasContext.lineWidth = snappedWidth;
-  canvasContext.setLineDash([]);
-  canvasContext.globalAlpha = 1;
 
-  if (type === "barLine" && isTransparent) {
+  if (type === "barLine" && barlineOff && barlineOffDisplay === BarlineOffDisplay.Dashed) {
     const dashUnit = Math.max(2, snappedWidth * 2);
     canvasContext.setLineDash([dashUnit, dashUnit]);
     canvasContext.globalAlpha = 0.35;
@@ -632,6 +635,7 @@ function drawBarLines(
   showText: boolean,
   dpr: number,
   isFirstBar: boolean,
+  barlineOffDisplay: BarlineOffDisplay,
   prevParams?: BarParams,
   prevNoteCount?: number,
 ) {
@@ -639,14 +643,14 @@ function drawBarLines(
   const lineHeight = statusFontSize;
   const topY = showText ? y - barNumberOffsetY - 3 * lineHeight : y;
 
-  const positions = new Map<number, { type: "branch" | "status" | "barLine"; isTransparent: boolean }>();
+  const positions = new Map<number, { type: "branch" | "status" | "barLine"; barlineOff: boolean }>();
 
-  const leftBarlineTransparent = params ? !params.barlineStartVisible : false;
-  const rightBarlineTransparent = params ? !params.barlineEndVisible : false;
+  const leftBarlineOff = params ? !params.barlineStartVisible : false;
+  const rightBarlineOff = params ? !params.barlineEndVisible : false;
 
   // Vertical Bar Lines - Medium Priority
-  positions.set(0, { type: "barLine", isTransparent: leftBarlineTransparent }); // Left edge (can be overwritten by branch/status)
-  positions.set(Math.round(width * 100) / 100, { type: "barLine", isTransparent: rightBarlineTransparent }); // Right edge
+  positions.set(0, { type: "barLine", barlineOff: leftBarlineOff }); // Left edge (can be overwritten by branch/status)
+  positions.set(Math.round(width * 100) / 100, { type: "barLine", barlineOff: rightBarlineOff }); // Right edge
 
   // Status Lines (BPM/HS/Scroll) - High Priority
   const labels = getBarStatusLabels(params, isFirstBar, prevParams, prevNoteCount);
@@ -656,15 +660,15 @@ function drawBarLines(
     // Only map valid proportional indices (or index 0 when empty)
     if (noteCount > 0 && idx < noteCount) {
       const pos = (idx / noteCount) * width;
-      positions.set(Math.round(pos * 100) / 100, { type: "status", isTransparent: false });
+      positions.set(Math.round(pos * 100) / 100, { type: "status", barlineOff: false });
     } else if (idx === 0) {
-      positions.set(0, { type: "status", isTransparent: false });
+      positions.set(0, { type: "status", barlineOff: false });
     }
   });
 
   // Branch Start - Highest Priority (Left edge only)
   if (isBranchStart) {
-    positions.set(0, { type: "branch", isTransparent: false });
+    positions.set(0, { type: "branch", barlineOff: false });
   }
 
   // Render all line sorted by position
@@ -673,7 +677,7 @@ function drawBarLines(
   sortedPositions.forEach((pos) => {
     const config = positions.get(pos);
     if (!config) return;
-    drawVerticalBarLine(canvasContext, x + pos, y, height, topY, config.type, config.isTransparent, {
+    drawVerticalBarLine(canvasContext, x + pos, y, height, topY, config.type, config.barlineOff, barlineOffDisplay, {
       barBorderWidth,
       dpr,
     });
@@ -1017,6 +1021,7 @@ function drawBarBackgroundWrapper(
     showBarDetails,
     dpr,
     isFirstBar,
+    options.barlineOffDisplay ?? BarlineOffDisplay.Dashed,
     prevParams,
     prevNoteCount,
   );

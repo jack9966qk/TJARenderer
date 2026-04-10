@@ -80,7 +80,7 @@ function createMockCanvas(
         height: canvasHeight,
         x: 0,
         y: 0,
-        toJSON() { },
+        toJSON() {},
       };
     },
     addEventListener(type: string, fn: (...args: never) => unknown) {
@@ -195,9 +195,9 @@ try {
     const p2 = chart.barParams[2];
     const p3 = chart.barParams[3];
 
-    assert(p1.barlineStartVisible === false && p1.barlineEndVisible === false, "Bar 1 should be transparent");
-    assert(p2.barlineStartVisible === false && p2.barlineEndVisible === false, "Bar 2 should remain transparent");
-    assert(p3.barlineStartVisible === false && p3.barlineEndVisible === false, "Bar 3 should remain transparent until end");
+    assert(p1.barlineStartVisible === false && p1.barlineEndVisible === false, "Bar 1 should have barlines off");
+    assert(p2.barlineStartVisible === false && p2.barlineEndVisible === false, "Bar 2 should remain barlines off");
+    assert(p3.barlineStartVisible === false && p3.barlineEndVisible === false, "Bar 3 should remain barlines off until end");
   });
 
   runTest("Parse TJA - BARLINON alias restores visibility", () => {
@@ -208,8 +208,8 @@ try {
     const p2 = chart.barParams[2];
     const p3 = chart.barParams[3];
 
-    assert(p1.barlineStartVisible === false && p1.barlineEndVisible === false, "Bar 1 should be transparent");
-    assert(p2.barlineStartVisible === false && p2.barlineEndVisible === false, "Bar 2 should still be transparent");
+    assert(p1.barlineStartVisible === false && p1.barlineEndVisible === false, "Bar 1 should have barlines off");
+    assert(p2.barlineStartVisible === false && p2.barlineEndVisible === false, "Bar 2 should still have barlines off");
     assert(p3.barlineStartVisible === true && p3.barlineEndVisible === true, "Bar 3 should be visible after #BARLINON");
   });
 
@@ -309,7 +309,7 @@ try {
 
     assert((canvas.listeners.get("mousemove")?.size ?? 0) === 0, "No mousemove listeners initially");
 
-    const cleanup = chartView.onNoteHovered(() => { });
+    const cleanup = chartView.onNoteHovered(() => {});
     assert(canvas.listeners.get("mousemove")?.size === 1, "Should have one mousemove listener after registration");
 
     cleanup();
@@ -323,7 +323,7 @@ try {
 
     assert((canvas.listeners.get("click")?.size ?? 0) === 0, "No click listeners initially");
 
-    const cleanup = chartView.onNoteClicked(() => { });
+    const cleanup = chartView.onNoteClicked(() => {});
     assert(canvas.listeners.get("click")?.size === 1, "Should have one click listener after registration");
 
     cleanup();

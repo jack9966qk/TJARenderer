@@ -103,6 +103,43 @@ LEVEL:8
 3000000000000000,
 #END`;
 
+const BARLINE_SWITCH_TJA = `TITLE:Barline Switch
+BPM:120
+COURSE:Oni
+LEVEL:8
+#START
+11,
+#BARLINEOFF
+22,
+#BARLINEON
+33,
+#END`;
+
+const BARLINE_OFF_UNTIL_END_TJA = `TITLE:Barline Off Until End
+BPM:120
+COURSE:Oni
+LEVEL:8
+#START
+11,
+#BARLINEOFF
+22,
+33,
+44,
+#END`;
+
+const BARLINE_OFF_UNTIL_ALIAS_ON_TJA = `TITLE:Barline Off Until Alias On
+BPM:120
+COURSE:Oni
+LEVEL:8
+#START
+11,
+#BARLINEOFF
+22,
+33,
+#BARLINON
+44,
+#END`;
+
 try {
   console.log("Testing Renderer Package...");
 
@@ -130,6 +167,50 @@ try {
     const bar1 = chart.bars[1];
     // 3000000000000000 -> balloon start, rests
     assert(bar1[0] === "3", `Expected first note of bar 1 to be '3', got '${bar1[0]}'`);
+  });
+
+  runTest("Parse TJA - BARLINEOFF/BARLINEON visibility", () => {
+    const chart = parseTJA(BARLINE_SWITCH_TJA).oni;
+    assert(chart.barParams.length === 3, `Expected 3 bar params, got ${chart.barParams.length}`);
+
+    const p0 = chart.barParams[0];
+    const p1 = chart.barParams[1];
+    const p2 = chart.barParams[2];
+
+    assert(p0.barlineStartVisible === true, "Bar 0 should start with visible barline");
+    assert(p0.barlineEndVisible === true, "Bar 0 should end with visible barline");
+
+    assert(p1.barlineStartVisible === false, "Bar 1 should start with hidden barline after #BARLINEOFF");
+    assert(p1.barlineEndVisible === false, "Bar 1 should end with hidden barline");
+
+    assert(p2.barlineStartVisible === true, "Bar 2 should start with visible barline after #BARLINEON");
+    assert(p2.barlineEndVisible === true, "Bar 2 should end with visible barline");
+  });
+
+  runTest("Parse TJA - BARLINEOFF stays active until course end", () => {
+    const chart = parseTJA(BARLINE_OFF_UNTIL_END_TJA).oni;
+    assert(chart.barParams.length === 4, `Expected 4 bar params, got ${chart.barParams.length}`);
+
+    const p1 = chart.barParams[1];
+    const p2 = chart.barParams[2];
+    const p3 = chart.barParams[3];
+
+    assert(p1.barlineStartVisible === false && p1.barlineEndVisible === false, "Bar 1 should have barlines off");
+    assert(p2.barlineStartVisible === false && p2.barlineEndVisible === false, "Bar 2 should remain barlines off");
+    assert(p3.barlineStartVisible === false && p3.barlineEndVisible === false, "Bar 3 should remain barlines off until end");
+  });
+
+  runTest("Parse TJA - BARLINON alias restores visibility", () => {
+    const chart = parseTJA(BARLINE_OFF_UNTIL_ALIAS_ON_TJA).oni;
+    assert(chart.barParams.length === 4, `Expected 4 bar params, got ${chart.barParams.length}`);
+
+    const p1 = chart.barParams[1];
+    const p2 = chart.barParams[2];
+    const p3 = chart.barParams[3];
+
+    assert(p1.barlineStartVisible === false && p1.barlineEndVisible === false, "Bar 1 should have barlines off");
+    assert(p2.barlineStartVisible === false && p2.barlineEndVisible === false, "Bar 2 should still have barlines off");
+    assert(p3.barlineStartVisible === true && p3.barlineEndVisible === true, "Bar 3 should be visible after #BARLINON");
   });
 
   runTest("NoteLocationMap basic operations", () => {

@@ -92,15 +92,17 @@ export function calculateInferredHands(
   annotations: NoteLocationMap<Annotation> | undefined,
   alternationThresholdMeasure: number = Infinity,
   resetThresholdMeasure: number = 0,
+  mainHand: HandType = HandType.R,
 ): NoteLocationMap<HandType> {
   const inferred = new NoteLocationMap<HandType>();
 
   const alternationThreshold = alternationThresholdMeasure * 4;
   const resetThreshold = resetThresholdMeasure === 0 ? Infinity : resetThresholdMeasure * 4;
+  const otherHand = mainHand === HandType.R ? HandType.L : HandType.R;
 
   const { segments } = extractNotesAndSegments(chart);
 
-  let lastHand: HandType = HandType.L; // Ensure first note gets R
+  let lastHand: HandType = otherHand; // Ensure the first note gets the main hand
   let currentEndSearchBar = 0;
   let currentEndSearchChar = 0;
   let previousNoteBeat = -Infinity;
@@ -133,12 +135,12 @@ export function calculateInferredHands(
 
     if (gapInternal > alternationThreshold + 0.0001) {
       for (const note of seg.notes) {
-        const currentInferred = HandType.R;
+        const currentInferred = mainHand;
         inferred.set(note.id, currentInferred);
         lastHand = annotationHand(annotations?.get(note.id)) ?? currentInferred;
       }
     } else if (shouldReset) {
-      let currentInferred = HandType.R;
+      let currentInferred = mainHand;
       inferred.set(seg.notes[0].id, currentInferred);
       lastHand = annotationHand(annotations?.get(seg.notes[0].id)) ?? currentInferred;
 
@@ -168,10 +170,17 @@ export function generateAutoAnnotations(
   alternationThresholdMeasure: number = Infinity,
   resetThresholdMeasure: number = 0,
   mode: "full" | "partial" = "partial",
+  mainHand: HandType = HandType.R,
 ): NoteLocationMap<Annotation> {
   const annotations = new NoteLocationMap(existingAnnotations);
   // Auto-annotation explicit placement follows user configuration
-  const inferred = calculateInferredHands(chart, annotations, alternationThresholdMeasure, resetThresholdMeasure);
+  const inferred = calculateInferredHands(
+    chart,
+    annotations,
+    alternationThresholdMeasure,
+    resetThresholdMeasure,
+    mainHand,
+  );
   const { segments } = extractNotesAndSegments(chart);
 
   const toAnnotate = new NoteLocationMap<boolean>();

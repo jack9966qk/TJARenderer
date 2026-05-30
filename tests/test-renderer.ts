@@ -197,7 +197,10 @@ try {
 
     assert(p1.barlineStartVisible === false && p1.barlineEndVisible === false, "Bar 1 should have barlines off");
     assert(p2.barlineStartVisible === false && p2.barlineEndVisible === false, "Bar 2 should remain barlines off");
-    assert(p3.barlineStartVisible === false && p3.barlineEndVisible === false, "Bar 3 should remain barlines off until end");
+    assert(
+      p3.barlineStartVisible === false && p3.barlineEndVisible === false,
+      "Bar 3 should remain barlines off until end",
+    );
   });
 
   runTest("Parse TJA - BARLINON alias restores visibility", () => {

@@ -167,9 +167,15 @@ r rlr r rlrlrlr
 1021102011212110,
 `;
 
-function testConfiguration(chart: ParsedChart, expectedLabels: string, altThreshold: number, resetThreshold: number) {
+function testConfiguration(
+  chart: ParsedChart,
+  expectedLabels: string,
+  altThreshold: number,
+  resetThreshold: number,
+  mainHand: HandType = HandType.R,
+) {
   const annotations = new NoteLocationMap<Annotation>();
-  const inferred = calculateInferredHands(chart, annotations, altThreshold, resetThreshold);
+  const inferred = calculateInferredHands(chart, annotations, altThreshold, resetThreshold, mainHand);
 
   let actualResult = "";
 
@@ -213,6 +219,13 @@ try {
   runTest("Auto Annotation - cook (alternation = 1/12, reset = 1/12)", () => {
     const { chart, expectedLabels } = parseSampleText(SAMPLE_COOK);
     testConfiguration(chart, expectedLabels, 1 / 12, 1 / 12);
+  });
+
+  runTest("Auto Annotation - left-hand starter mirrors the right starter (full alt)", () => {
+    const { chart, expectedLabels } = parseSampleText(SAMPLE_FULL_ALT);
+    // With a left starter every hand flips; the result is the exact mirror.
+    const mirrored = expectedLabels.replace(/[rl]/g, (c) => (c === "r" ? "l" : "r"));
+    testConfiguration(chart, mirrored, Infinity, 0, HandType.L);
   });
 
   console.log("\nAll auto annotation tests passed.\n");

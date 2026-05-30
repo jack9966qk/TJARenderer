@@ -397,6 +397,8 @@ export interface RenderOptions {
   handAlternationThreshold?: number;
   handResetThreshold?: number;
   autoAnnotateMode?: "full" | "partial";
+  /** Which hand the auto-annotation starts/leads with (defaults to R). */
+  autoAnnotateMainHand?: HandType;
   annotationToolType?: "hand" | "separator";
   showAttribution?: boolean;
   range?: {

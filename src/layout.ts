@@ -1062,7 +1062,9 @@ export function createLayout(
     }
   });
 
-  const inferredHands = calculateInferredHands(chart, options.annotations, Infinity, 0);
+  // Baseline for the match/mismatch annotation colouring: full alternation,
+  // starting from the user's chosen main hand (defaults to R).
+  const inferredHands = calculateInferredHands(chart, options.annotations, Infinity, 0, options.autoAnnotateMainHand);
 
   return {
     virtualBars,

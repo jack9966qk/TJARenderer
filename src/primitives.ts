@@ -269,6 +269,11 @@ export function toNoteType(char: string): NoteType {
 export enum HandType {
   L = "L",
   R = "R",
+  /**
+   * A tap that continues a roll from the preceding note, sharing its hand. Displayed as
+   * "-" in place of the L/R label, hence the enum value.
+   */
+  Roll = "-",
 }
 
 export interface Annotation {
@@ -282,6 +287,10 @@ export function annotationHand(a: Annotation | undefined): HandType | undefined 
 
 export function annotationHasSeparator(a: Annotation | undefined): boolean {
   return !!a?.separator;
+}
+
+export function annotationIsRoll(a: Annotation | undefined): boolean {
+  return a?.hand === HandType.Roll;
 }
 
 export function annotationWithHand(a: Annotation | undefined, hand: HandType | undefined): Annotation | undefined {
@@ -399,6 +408,14 @@ export interface RenderOptions {
   autoAnnotateMode?: "full" | "partial";
   /** Which hand the auto-annotation starts/leads with (defaults to R). */
   autoAnnotateMainHand?: HandType;
+  /**
+   * Rolling gap threshold, expressed as the BPM whose 16th-note duration is the cutoff:
+   * a same-gap segment is rolled only when its note spacing (in time) is no longer than a
+   * 16th note at this BPM. Rolling is disabled when unset.
+   */
+  rollGapThresholdBpm?: number;
+  /** Minimum segment length (in notes) for rolling to apply. Disabled when unset. */
+  rollMinSegmentLength?: number;
   annotationToolType?: "hand" | "separator";
   showAttribution?: boolean;
   range?: {

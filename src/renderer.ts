@@ -30,6 +30,7 @@ import {
   type Annotation,
   annotationHand,
   annotationHasSeparator,
+  annotationIsRoll,
   BarlineOffDisplay,
   BranchName,
   DEFAULT_RENDER_OPTIONS,
@@ -66,6 +67,7 @@ export {
 export {
   annotationHand,
   annotationHasSeparator,
+  annotationIsRoll,
   BarlineOffDisplay,
   BranchName,
   DEFAULT_TEXTS,
@@ -1487,15 +1489,18 @@ function drawBarAnnotations(
     canvasContext.restore();
   }
 
-  // Pass 2: Draw L/R text (above separators)
+  // Pass 2: Draw L/R text (above separators), or "-" for the second tap of a roll swing
   for (let i = 0; i < bar.length; i++) {
     if (!isJudgeable(bar[i])) continue;
     const noteId = { barIndex: originalBarIndex, charIndex: i, branch };
-    const hand = annotationHand(options.annotations.get(noteId));
+    const annotation = options.annotations.get(noteId);
+    const hand = annotationHand(annotation);
     if (!hand) continue;
+    const isRoll = annotationIsRoll(annotation);
     const noteX = x + i * noteStep;
+    // A roll tap is shown neutrally as "-" — it has no hand to disagree with the baseline.
     let textColor = PALETTE.ui.annotation.match;
-    if (inferredHands) {
+    if (!isRoll && inferredHands) {
       const inferred = inferredHands.get(noteId);
       if (inferred && inferred !== hand) {
         textColor = PALETTE.ui.annotation.mismatch;
@@ -1507,6 +1512,7 @@ function drawBarAnnotations(
     canvasContext.textAlign = "center";
     canvasContext.textBaseline = "bottom";
     const textY = frame.y;
+    // HandType.Roll's enum value is the "-" label, so the hand renders directly.
     canvasContext.fillText(hand, noteX, textY);
     canvasContext.restore();
   }

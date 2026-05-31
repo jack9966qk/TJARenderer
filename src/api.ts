@@ -2,6 +2,7 @@ import type { HitInfo } from "./hit-testing.js";
 import {
   createChartViewImpl,
   createCycleHandHandler as createCycleHandHandlerImpl,
+  createToggleRollingHandler as createToggleRollingHandlerImpl,
   createToggleSeparatorHandler as createToggleSeparatorHandlerImpl,
   getChartInfoImpl,
   type NoteInteractionEvent,
@@ -131,4 +132,15 @@ export function createToggleSeparatorHandler(
   onChange: (annotations: NoteLocationMap<Annotation>) => void,
 ): NoteInteractionHandler {
   return createToggleSeparatorHandlerImpl(getAnnotations, onChange);
+}
+
+/**
+ * Creates a NoteInteractionHandler that toggles the roll annotation on judgeable
+ * notes, labelling them as rolling from the preceding note. Non-judgeable notes are ignored.
+ */
+export function createToggleRollingHandler(
+  getAnnotations: () => NoteLocationMap<Annotation>,
+  onChange: (annotations: NoteLocationMap<Annotation>) => void,
+): NoteInteractionHandler {
+  return createToggleRollingHandlerImpl(getAnnotations, onChange);
 }

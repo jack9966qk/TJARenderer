@@ -307,6 +307,18 @@ export function annotationToggleSeparator(a: Annotation | undefined): Annotation
 }
 
 /**
+ * Toggles the roll hand at the given annotation: a roll tap inherits the previous note's
+ * hand, so toggling sets the hand to Roll, or clears it when already a roll. Any explicit
+ * L/R hand is replaced, while the separator is preserved.
+ */
+export function annotationToggleRoll(a: Annotation | undefined): Annotation | undefined {
+  const separator = a?.separator;
+  const newHand = a?.hand === HandType.Roll ? undefined : HandType.Roll;
+  if (!newHand && !separator) return undefined;
+  return { hand: newHand, separator: separator || undefined };
+}
+
+/**
  * Cycles the hand annotation: none → L → R → none, preserving any separator.
  */
 export function cycleHandAnnotation(current: Annotation | undefined): Annotation | undefined {
@@ -343,6 +355,21 @@ export function applyToggleSeparator(
 ): NoteLocationMap<Annotation> {
   const result = new NoteLocationMap(annotations);
   const newVal = annotationToggleSeparator(result.get(location));
+  if (newVal) result.set(location, newVal);
+  else result.delete(location);
+  return result;
+}
+
+/**
+ * Toggles the roll annotation at the given location, returning a new annotations map.
+ * Preserves any hand and separator annotation.
+ */
+export function applyToggleRoll(
+  annotations: NoteLocationMap<Annotation>,
+  location: NoteLocation,
+): NoteLocationMap<Annotation> {
+  const result = new NoteLocationMap(annotations);
+  const newVal = annotationToggleRoll(result.get(location));
   if (newVal) result.set(location, newVal);
   else result.delete(location);
   return result;
@@ -416,7 +443,7 @@ export interface RenderOptions {
   rollGapThresholdBpm?: number;
   /** Minimum segment length (in notes) for rolling to apply. Disabled when unset. */
   rollMinSegmentLength?: number;
-  annotationToolType?: "hand" | "separator";
+  annotationToolType?: "hand" | "separator" | "rolling";
   showAttribution?: boolean;
   range?: {
     start: NoteLocation;

@@ -15,6 +15,7 @@ import {
 import {
   type Annotation,
   applyCycleHand,
+  applyToggleRoll,
   applyToggleSeparator,
   DEFAULT_TEXTS,
   isJudgeable,
@@ -282,6 +283,21 @@ export function createToggleSeparatorHandler(
   return ({ hit }) => {
     if (!hit || !isJudgeable(hit.type)) return;
     onChange(applyToggleSeparator(getAnnotations(), hit.location));
+  };
+}
+
+/**
+ * Creates a NoteInteractionHandler that toggles the roll annotation
+ * on judgeable notes, labelling them as rolling from the preceding note.
+ * Non-judgeable notes are ignored.
+ */
+export function createToggleRollingHandler(
+  getAnnotations: () => NoteLocationMap<Annotation>,
+  onChange: (annotations: NoteLocationMap<Annotation>) => void,
+): NoteInteractionHandler {
+  return ({ hit }) => {
+    if (!hit || !isJudgeable(hit.type)) return;
+    onChange(applyToggleRoll(getAnnotations(), hit.location));
   };
 }
 
